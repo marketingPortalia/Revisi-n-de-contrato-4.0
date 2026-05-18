@@ -917,7 +917,28 @@ async function analyze(){
   const fd=getFormData();
   const filled=fd.filter(f=>f.value).map(f=>f.label+': '+f.value).join('\n');
   const empty=fd.filter(f=>!f.value).map(f=>f.label).join(', ');
-  const combined=S.texts.map((t,i)=>'=== '+S.files[i]?.name+' ===\n'+t).join('\n\n');
+  // Normalize OCR artifacts before sending to AI
+  function normalizeOCR(txt){
+    return txt
+      // Fix letters separated by spaces (OCR artifact): "C A S A" -> "CASA"
+      .replace(/\b([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ])\b/g,'$1$2$3$4')
+      .replace(/\b([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ])\b/g,'$1$2$3')
+      // Common OCR splits in Spanish legal docs
+      .replace(/BIENES MAN ?C ?OMUNADOS?/gi,'BIENES MANCOMUNADOS')
+      .replace(/BIENES MAN ?COMUNADOS?/gi,'BIENES MANCOMUNADOS')
+      .replace(/CASA ?DA/g,'CASADA')
+      .replace(/CASA ?DO/g,'CASADO')
+      .replace(/SOL ?TERA/g,'SOLTERA')
+      .replace(/SOL ?TERO/g,'SOLTERO')
+      .replace(/COAH ?UILA/g,'COAHUILA')
+      .replace(/NACIO ?NAL ?IDAD/g,'NACIONALIDAD')
+      .replace(/PROFE ?SION/g,'PROFESION')
+      .replace(/ORIGINA ?RIO/g,'ORIGINARIO')
+      // Collapse multiple spaces
+      .replace(/ {2,}/g,' ')
+      .trim();
+  }
+  const combined=S.texts.map((t,i)=>'=== '+S.files[i]?.name+' ===\n'+normalizeOCR(t)).join('\n\n');
   const cText=combined.slice(0,10000);
   setStep(3);
   const prompt=`Eres un experto verificador de contratos inmobiliarios mexicanos con más de 20 años de experiencia. Tu tarea es comparar los DATOS CORRECTOS DEL CLIENTE contra el TEXTO DEL CONTRATO y encontrar coincidencias, errores o ausencias reales.
@@ -929,23 +950,32 @@ ${empty?'NOTA: Estos campos NO fueron proporcionados, NO los evalúes: '+empty:'
 TEXTO COMPLETO DEL CONTRATO:
 ${cText}
 
+FORMATO EXACTO DEL CONTRATO (los contratos de Portalia usan este formato numerado):
+  "1.- Llamarse como queda escrito [NOMBRE]"  → campo: Nombre completo
+  "2.- Nacionalidad: [VALOR]"                  → campo: Nacionalidad
+  "3.- Originario de: [CIUDAD/ESTADO]"         → campo: Originario de
+  "4.- Fecha de nacimiento: [FECHA]"           → campo: Fecha nacimiento
+  "5.- Estado civil: [VALOR] ([RÉGIMEN])"      → campo: Estado civil + Régimen matrimonial
+     Ejemplos: "CASADA (BIENES MANCOMUNADOS)" = Casado(a) con Sociedad conyugal
+               "SOLTERO" = Soltero(a)
+               "CASADO (SEPARACION DE BIENES)" = Casado(a) con Separación de bienes
+  "6.- Profesión: [VALOR]"                     → campo: Ocupación
+     Sinónimos: Profesión = Ocupación = Oficio = Actividad
+
 REGLAS DE COMPARACIÓN INTELIGENTE:
-1. Ignora mayúsculas, minúsculas, acentos y tildes al comparar (CASADA = casada = Casada)
-2. El texto del PDF puede tener espacios extra o caracteres separados por OCR — intérpretalo: "CASA DA" = "CASADA", "BIENES MAN COMUNADOS" = "BIENES MANCOMUNADOS", "COAH UILA" = "COAHUILA"
-3. Acepta sinónimos y equivalencias comunes en contratos mexicanos:
-   - Estado civil: "casada/o" = "casado/a" | "soltera/o" | "divorciada/o" | "viuda/o" | "unión libre" | "CASA DA" | "SOL TERA"
-   - Régimen matrimonial: "sociedad conyugal" = "bienes mancomunados" = "BIENES MAN COMUNADOS" = "MANCOMUNADOS"
-   - Originario de: busca "Originario de:", "natural de", "nacido en", "procedente de" seguido del lugar
-   - Ocupación/Profesión: "Profesión:" = "ocupación:" = "oficio:" = "actividad:" = "se dedica a" | acepta el valor aunque esté en mayúsculas (EMPLEADA = Empleada)
-   - Correo: busca cualquier texto con "@" o que diga "correo", "email", "e-mail"
-   - Teléfono: busca secuencias de 8-10 dígitos, "tel:", "cel:", "móvil:", "teléfono:"
-   - Notaría: busca "Notaría", "Notario Público", "ante Notario", número de notaría
-4. Si el dato aparece en el contrato aunque sea con variación de formato → marca como "correcto"
-5. Si el dato del cliente dice "Casado(a)" y en el contrato dice "CASADA" → es CORRECTO
-6. Si el dato del cliente dice "Sociedad conyugal" y el contrato dice "BIENES MANCOMUNADOS" → es CORRECTO (son equivalentes legalmente)
-7. Solo marca "error" si el valor en el contrato es claramente DIFERENTE al dato del cliente (ej: nombre distinto, CURP diferente, fecha diferente)
-8. Solo marca "faltante" si después de buscar exhaustivamente con todas las variantes el dato DEFINITIVAMENTE no aparece en ninguna parte del contrato
-9. NUNCA marques como faltante un campo que el usuario no proporcionó
+1. Ignora mayúsculas, minúsculas y acentos: CASADA=Casada=casada, COAHUILA=Coahuila
+2. El PDF puede tener OCR con espacios: "CASA DA"=CASADA, "BIENES MAN COMUNADOS"=BIENES MANCOMUNADOS
+3. Equivalencias legales que debes aceptar como CORRECTO:
+   - "BIENES MANCOMUNADOS" = "Sociedad conyugal" = "bienes mancomunados" = "mancomunados"
+   - "SEPARACION DE BIENES" = "Separación de bienes"
+   - "CASADA" o "CASADO" = "Casado(a)"
+   - "SOLTERA" o "SOLTERO" = "Soltero(a)"
+   - "Profesión:" = "Ocupación:" = "Oficio:"
+   - "Originario de:" = "Natural de:" = "Lugar de origen:"
+4. Si el número de declaración (3.-, 5.-, 6.-) contiene el dato → es CORRECTO aunque el formato sea diferente
+5. Solo marca "error" si el valor es CLARAMENTE DIFERENTE (nombre distinto, CURP diferente)
+6. Solo marca "faltante" si el dato NO aparece en NINGUNA parte del contrato después de buscar todas las variantes
+7. NUNCA marques faltante un campo que el usuario no proporcionó
 
 JSON exacto a devolver (sin texto extra, sin markdown, sin explicaciones):
 {"resumen":{"errores":0,"faltantes":0,"correctos":0,"puntaje":0},"hallazgos":[{"tipo":"error","campo":"","valorContrato":"","valorCorrecto":"","descripcion":""}],"contratoAnotado":""}
@@ -1867,7 +1897,28 @@ async function analyze(){
   const fd=getFormData();
   const filled=fd.filter(f=>f.value).map(f=>f.label+': '+f.value).join('\n');
   const empty=fd.filter(f=>!f.value).map(f=>f.label).join(', ');
-  const combined=S.texts.map((t,i)=>'=== '+S.files[i]?.name+' ===\n'+t).join('\n\n');
+  // Normalize OCR artifacts before sending to AI
+  function normalizeOCR(txt){
+    return txt
+      // Fix letters separated by spaces (OCR artifact): "C A S A" -> "CASA"
+      .replace(/\b([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ])\b/g,'$1$2$3$4')
+      .replace(/\b([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ]) ([A-ZÁÉÍÓÚÜÑ])\b/g,'$1$2$3')
+      // Common OCR splits in Spanish legal docs
+      .replace(/BIENES MAN ?C ?OMUNADOS?/gi,'BIENES MANCOMUNADOS')
+      .replace(/BIENES MAN ?COMUNADOS?/gi,'BIENES MANCOMUNADOS')
+      .replace(/CASA ?DA/g,'CASADA')
+      .replace(/CASA ?DO/g,'CASADO')
+      .replace(/SOL ?TERA/g,'SOLTERA')
+      .replace(/SOL ?TERO/g,'SOLTERO')
+      .replace(/COAH ?UILA/g,'COAHUILA')
+      .replace(/NACIO ?NAL ?IDAD/g,'NACIONALIDAD')
+      .replace(/PROFE ?SION/g,'PROFESION')
+      .replace(/ORIGINA ?RIO/g,'ORIGINARIO')
+      // Collapse multiple spaces
+      .replace(/ {2,}/g,' ')
+      .trim();
+  }
+  const combined=S.texts.map((t,i)=>'=== '+S.files[i]?.name+' ===\n'+normalizeOCR(t)).join('\n\n');
   const cText=combined.slice(0,10000);
   setStep(3);
   const prompt=`Eres un experto verificador de contratos inmobiliarios mexicanos. Compara el contrato con los datos correctos del cliente y devuelve SOLO JSON válido sin texto extra ni markdown.
