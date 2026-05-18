@@ -871,7 +871,38 @@ async function analyze(){
   const combined=S.texts.map((t,i)=>'=== '+S.files[i]?.name+' ===\n'+t).join('\n\n');
   const cText=combined.slice(0,6000);
   setStep(3);
-  const prompt=`Eres verificador de contratos inmobiliarios. Compara el contrato con los datos correctos y devuelve SOLO JSON válido sin texto extra ni markdown.\n\nDATOS CORRECTOS DEL CLIENTE:\n${filled}\n${empty?'NO verificar: '+empty:''}\n\nCONTRATO:\n${cText}\n\nJSON exacto:\n{"resumen":{"errores":0,"faltantes":0,"correctos":0,"puntaje":0},"hallazgos":[{"tipo":"error","campo":"","valorContrato":"","valorCorrecto":"","descripcion":""}],"contratoAnotado":""}\n\nReglas:\n- error: dato en contrato NO coincide\n- faltante: dato capturado pero NO aparece\n- correcto: coincide exactamente\n- Solo verifica campos capturados\n- contratoAnotado: texto completo con [ERROR:texto], [FALTANTE:desc], [OK:texto]\n- puntaje 0-100`;
+  const prompt=`Eres un experto verificador de contratos inmobiliarios mexicanos. Compara el contrato con los datos correctos del cliente y devuelve SOLO JSON válido sin texto extra ni markdown.
+
+DATOS CORRECTOS DEL CLIENTE (fuente de verdad):
+${filled}
+${empty?'Campos sin datos proporcionados (NO marcar como faltante): '+empty:''}
+
+CONTRATO A VERIFICAR:
+${cText}
+
+JSON exacto a devolver:
+{"resumen":{"errores":0,"faltantes":0,"correctos":0,"puntaje":0},"hallazgos":[{"tipo":"error","campo":"","valorContrato":"","valorCorrecto":"","descripcion":""}],"contratoAnotado":""}
+
+REGLAS CRÍTICAS:
+1. "error": el dato SÍ aparece en el contrato pero NO coincide con los datos correctos del cliente (ej: nombre mal escrito, CURP diferente)
+2. "faltante": el dato correcto fue proporcionado Y buscaste exhaustivamente en todo el contrato Y definitivamente NO aparece en ninguna forma
+3. "correcto": el dato aparece en el contrato y coincide con los datos del cliente
+
+INSTRUCCIONES DE BÚSQUEDA (muy importante):
+- Busca cada dato en TODO el contrato, no solo al inicio
+- Estado civil: busca "soltero", "casado", "divorciado", "viudo", "unión libre" y variantes
+- Régimen matrimonial: busca "sociedad conyugal", "separación de bienes", "bienes mancomunados"
+- Originario de: busca "originario", "natural de", "nacido en", "procedente de"
+- Ocupación: busca "ocupación", "profesión", "actividad", "oficio", "se dedica a"
+- Correo: busca "@", "email", "correo", "e-mail"
+- Teléfono: busca secuencias de 10 dígitos, "tel", "cel", "teléfono", "móvil"
+- Notaría: busca "notaría", "notario", "fe notarial", número de notaría
+- Si el dato está presente aunque sea en forma abreviada o diferente → márcalo como "correcto"
+- Solo marca "faltante" si estás 100% seguro de que NO aparece en ninguna parte del contrato
+- NO marques como faltante campos que no fueron proporcionados en los datos del cliente
+
+contratoAnotado: copia el texto COMPLETO del contrato usando [ERROR:texto_incorrecto], [FALTANTE:descripcion_breve], [OK:texto_correcto] solo donde aplique.
+puntaje: 0-100 según calidad general del contrato.`;
   try{
     const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:4096,messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){const e=await resp.json();throw new Error(e.error?.message);}
