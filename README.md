@@ -625,6 +625,14 @@ footer{background:var(--gray);text-align:center;padding:1.25rem;margin-top:3rem}
           <div class="dz-hint">PDF, TXT · Múltiples archivos · Máx. 10 MB c/u</div>
         </div>
         <div class="file-list" id="fileList"></div>
+        <div id="debugBox" style="display:none;margin-top:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Texto extraído del PDF</span>
+            <button onclick="document.getElementById('debugBox').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px">×</button>
+          </div>
+          <textarea id="debugText" readonly style="width:100%;height:200px;font-family:monospace;font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rxs);padding:8px;color:var(--text2);resize:vertical;outline:none"></textarea>
+        </div>
+        <button id="debugBtn" onclick="showDebug()" style="display:none;margin-top:8px;width:100%;padding:7px;background:none;border:1px dashed var(--border2);border-radius:var(--rxs);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:600;color:var(--text3);cursor:pointer;letter-spacing:.06em;text-transform:uppercase">👁 Ver texto extraído del PDF</button>
       </div>
     </div>
 
@@ -801,6 +809,10 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 function saveApiKey(){const k=document.getElementById('apiKey').value.trim();if(!k)return;S.apiKey=k;localStorage.setItem('portalia_key',k);toast('✅ Clave guardada');checkReady();}
 function getFormData(){return FIELDS.map(f=>({...f,value:(document.getElementById(f.id)||{}).value?.trim()||''}))}
 function formHasData(){return getFormData().some(f=>f.value)}
+function showDebug(){
+  document.getElementById('debugBox').style.display='block';
+  document.getElementById('debugText').value=S.texts.map((t,i)=>'=== '+S.files[i]?.name+' ===\n'+t).join('\n\n')||'(sin texto extraído aún)';
+}
 function checkReady(){document.getElementById('analyzeBtn').disabled=!(S.files.length&&formHasData()&&S.apiKey)}
 
 function onDrop(e){e.preventDefault();document.getElementById('dz').classList.remove('drag-over');Array.from(e.dataTransfer.files).forEach(addFile);}
@@ -839,7 +851,7 @@ async function addFile(file){
         .replace(/\s{3,}/g,' ') // multiple spaces to one
         .replace(/([a-záéíóúüñA-ZÁÉÍÓÚÜÑ])\s([a-záéíóúüñA-ZÁÉÍÓÚÜÑ])\s([a-záéíóúüñA-ZÁÉÍÓÚÜÑ])/g,'$1$2$3')
         .trim();
-      S.texts[idx]=txt;toast('✅ '+file.name+' — '+pdf.numPages+' página(s)');
+      S.texts[idx]=txt;toast('✅ '+file.name+' — '+pdf.numPages+' página(s)');document.getElementById('debugBtn').style.display='block';
     }else{S.texts[idx]=await file.text();toast('✅ '+file.name+' cargado');}
   }catch(e){toast('❌ Error: '+e.message);S.texts[idx]='';}
   renderFileList();checkReady();
