@@ -814,8 +814,32 @@ async function addFile(file){
       const buf=await file.arrayBuffer();
       const pdf=await pdfjsLib.getDocument({data:buf}).promise;
       let txt='';
-      for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const ct=await pg.getTextContent();txt+=ct.items.map(x=>x.str).join(' ')+'\n';}
-      S.texts[idx]=txt.trim();toast('✅ '+file.name+' — '+pdf.numPages+' página(s)');
+      for(let i=1;i<=pdf.numPages;i++){
+        const pg=await pdf.getPage(i);
+        const ct=await pg.getTextContent();
+        // Join items preserving spacing based on position
+        let pageText='';
+        let lastX=null, lastY=null;
+        for(const item of ct.items){
+          if(!item.str) continue;
+          if(lastY!==null && Math.abs(item.transform[5]-lastY)>5){
+            pageText+='\n';
+          } else if(lastX!==null && item.transform[4]-lastX>2){
+            pageText+=' ';
+          }
+          pageText+=item.str;
+          lastX=item.transform[4]+item.width;
+          lastY=item.transform[5];
+        }
+        txt+=pageText+'\n';
+      }
+      // Clean up common OCR artifacts: fix words split by spaces
+      txt=txt
+        .replace(/([A-ZÁÉÍÓÚÜÑ])\s([A-ZÁÉÍÓÚÜÑ])\s([A-ZÁÉÍÓÚÜÑ])/g,'$1$2$3') // "C A S A" -> "CASA"
+        .replace(/\s{3,}/g,' ') // multiple spaces to one
+        .replace(/([a-záéíóúüñA-ZÁÉÍÓÚÜÑ])\s([a-záéíóúüñA-ZÁÉÍÓÚÜÑ])\s([a-záéíóúüñA-ZÁÉÍÓÚÜÑ])/g,'$1$2$3')
+        .trim();
+      S.texts[idx]=txt;toast('✅ '+file.name+' — '+pdf.numPages+' página(s)');
     }else{S.texts[idx]=await file.text();toast('✅ '+file.name+' cargado');}
   }catch(e){toast('❌ Error: '+e.message);S.texts[idx]='';}
   renderFileList();checkReady();
@@ -888,18 +912,20 @@ REGLAS CRÍTICAS:
 2. "faltante": el dato correcto fue proporcionado Y buscaste exhaustivamente en todo el contrato Y definitivamente NO aparece en ninguna forma
 3. "correcto": el dato aparece en el contrato y coincide con los datos del cliente
 
-INSTRUCCIONES DE BÚSQUEDA (muy importante):
-- Busca cada dato en TODO el contrato, no solo al inicio
-- Estado civil: busca "soltero", "casado", "divorciado", "viudo", "unión libre" y variantes
-- Régimen matrimonial: busca "sociedad conyugal", "separación de bienes", "bienes mancomunados"
-- Originario de: busca "originario", "natural de", "nacido en", "procedente de"
-- Ocupación: busca "ocupación", "profesión", "actividad", "oficio", "se dedica a"
-- Correo: busca "@", "email", "correo", "e-mail"
-- Teléfono: busca secuencias de 10 dígitos, "tel", "cel", "teléfono", "móvil"
-- Notaría: busca "notaría", "notario", "fe notarial", número de notaría
-- Si el dato está presente aunque sea en forma abreviada o diferente → márcalo como "correcto"
-- Solo marca "faltante" si estás 100% seguro de que NO aparece en ninguna parte del contrato
-- NO marques como faltante campos que no fueron proporcionados en los datos del cliente
+INSTRUCCIONES DE BÚSQUEDA EXHAUSTIVA (crítico):
+- El contrato puede tener texto extraído de PDF con errores de espaciado (OCR): "CASA DA" = "CASADA", "BIENES MAN C OMUNADO S" = "BIENES MANCOMUNADOS", "C OA HUILA" = "COAHUILA". Lee con flexibilidad.
+- Busca cada campo en TODO el texto completo del contrato.
+- Estado civil: "soltero/a", "casado/a", "casada", "divorciado/a", "viudo/a", "unión libre", "CASA DA", "SOL TERO" (con espacios OCR)
+- Régimen matrimonial: "sociedad conyugal", "separación de bienes", "bienes mancomunados", "BIENES MAN C OMUNADO S", "MANCOMUNADOS"
+- Originario de: "originario", "originaria", "Originario de:", "natural de", "nacido en" seguido de ciudad/estado
+- Ocupación/Profesión: "Profesión:", "profesión", "ocupación", "Profesion", "EMPLEADA", "empleado", "se dedica"
+- Correo: "@", "correo", "email", "e-mail" — si no aparece en el contrato es válido que falte
+- Teléfono: 10 dígitos seguidos, "tel:", "cel:", "teléfono" — si no aparece en el contrato es válido que falte
+- Notaría: "notaría", "Notaría", "notario", "Notario Público" — si no aparece en el contrato es válido que falte
+- NUNCA marques "faltante" si el dato aparece en cualquier forma en el contrato aunque tenga espacios extra o mayúsculas diferentes
+- NUNCA marques "faltante" campos que el usuario NO proporcionó en los datos del cliente
+- Solo "faltante" si: el usuario SÍ proporcionó el dato Y buscaste exhaustivamente Y definitivamente no está
+- "correcto" si el dato está en el contrato y coincide con lo proporcionado (aunque tenga variaciones menores de formato)
 
 contratoAnotado: copia el texto COMPLETO del contrato usando [ERROR:texto_incorrecto], [FALTANTE:descripcion_breve], [OK:texto_correcto] solo donde aplique.
 puntaje: 0-100 según calidad general del contrato.`;
