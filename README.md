@@ -491,9 +491,9 @@ main{max-width:1300px;margin:0 auto;padding:2.5rem 2rem}
   display:none;position:fixed;inset:0;
   background:rgba(50,50,50,.6);
   backdrop-filter:blur(6px);
-  z-index:500;align-items:center;justify-content:center;padding:1rem;
+  z-index:9999;align-items:center;justify-content:center;padding:1rem;
 }
-.modal-backdrop.open{display:flex}
+.modal-backdrop.open{display:flex!important}
 .modal{
   background:var(--surface);
   border:1px solid var(--border);
@@ -518,12 +518,15 @@ main{max-width:1300px;margin:0 auto;padding:2.5rem 2rem}
 .modal-hint{font-size:12px;color:var(--text3);background:var(--gold-light);border:1px solid rgba(255,181,72,.25);border-radius:var(--rxs);padding:12px 14px;margin-bottom:14px;line-height:1.6;font-weight:500}
 .paste-area{
   width:100%;height:230px;padding:14px;
-  background:var(--surface2);border:1.5px solid var(--border);
+  background:var(--surface);border:1.5px solid var(--border);
   border-radius:var(--rs);
   font-family:'Montserrat',sans-serif;font-size:13px;color:var(--text);
   resize:vertical;outline:none;line-height:1.7;
   transition:border-color .15s,box-shadow .15s;
   font-weight:400;
+  pointer-events:all;
+  -webkit-user-select:text;
+  user-select:text;
 }
 .paste-area:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-lt)}
 .paste-area::placeholder{color:var(--text3)}
@@ -881,8 +884,21 @@ function renderFileList(){
   }).join('');
 }
 
-function openModal(){document.getElementById('modal').classList.add('open');setTimeout(()=>document.getElementById('pasteArea').focus(),150);}
-function closeModal(){document.getElementById('modal').classList.remove('open');document.getElementById('parsingInd').classList.remove('show');}
+function openModal(){
+  const m=document.getElementById('modal');
+  m.classList.add('open');
+  m.style.display='flex';
+  setTimeout(()=>{
+    const ta=document.getElementById('pasteArea');
+    if(ta){ta.focus();ta.removeAttribute('readonly');}
+  },150);
+}
+function closeModal(){
+  const m=document.getElementById('modal');
+  m.classList.remove('open');
+  m.style.display='none';
+  document.getElementById('parsingInd').classList.remove('show');
+}
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
@@ -939,56 +955,67 @@ async function analyze(){
       .trim();
   }
   const combined=S.texts.map((t,i)=>'=== '+S.files[i]?.name+' ===\n'+normalizeOCR(t)).join('\n\n');
-  const cText=combined.slice(0,10000);
+  const cText=combined.slice(0,12000);
   setStep(3);
-  const prompt=`Eres un experto verificador de contratos inmobiliarios mexicanos. Analiza el CONTRATO y compara con los DATOS DEL CLIENTE. Devuelve SOLO JSON sin texto extra ni markdown.
+  const prompt=`Eres el sistema de verificación de contratos de PORTALIA DESARROLLOS INTELIGENTES. Tu única tarea es comparar los DATOS DEL CLIENTE con el texto del CONTRATO y determinar si coinciden. Devuelve SOLO JSON sin texto extra.
 
-DATOS CORRECTOS DEL CLIENTE:
-${filled}
-${empty ? 'NO evaluar estos campos (no se proporcionaron): ' + empty : ''}
+ESTRUCTURA EXACTA DE LOS CONTRATOS DE PORTALIA:
+El contrato principal (CMPI) tiene esta sección de DECLARACIONES con el siguiente formato numerado:
+  1.- Llamarse como queda escrito [NOMBRE COMPLETO]
+  2.- Nacionalidad: [VALOR]
+  3.- Originario de: [CIUDAD O ESTADO]
+  4.- Fecha de nacimiento: [FECHA]
+  5.- Estado civil: [VALOR] ([RÉGIMEN])
+     → "CASADA (BIENES MANCOMUNADOS)" significa Estado civil=Casado(a) y Régimen=Sociedad conyugal
+     → "SOLTERO" o "SOLTERA" significa Estado civil=Soltero(a) y Régimen=N/A
+  6.- Profesión: [VALOR]  ← esto equivale al campo OCUPACIÓN
+  7.- Cédula de Registro Federal de Contribuyentes (RFC): [VALOR]
+  8.- Clave Única de Registro de Población (CURP): [VALOR]
+  9.- Con domicilio: [DIRECCIÓN COMPLETA]
 
-CONTRATO:
-${cText}
+El ANEXO A tiene esta sección de DATOS GENERALES en tabla:
+  "MANDANTE": [NOMBRE]
+  RFC: [VALOR]
+  CURP: [VALOR]
+  DOMICILIO: [DIRECCIÓN]
+  TICKET'S DE INVERSIÓN: [N] TICKETS
+  INVERSIÓN TOTAL: [MONTO]
+  PLAZO: [VALOR]
+  BENEFICIARIOS: [NOMBRE DEL BENEFICIARIO]
 
-INSTRUCCIONES CRÍTICAS DE BÚSQUEDA:
-Los contratos de Portalia Desarrollos usan este formato numerado en la sección DECLARACIONES:
-  "1.- Llamarse como queda escrito [NOMBRE]"
-  "2.- Nacionalidad: [VALOR]"
-  "3.- Originario de: [CIUDAD/ESTADO]"
-  "4.- Fecha de nacimiento: [FECHA]"
-  "5.- Estado civil: [VALOR] ([RÉGIMEN MATRIMONIAL])"
-  "6.- Profesión: [VALOR]"
-  "7.- RFC: [VALOR]"
-  "8.- CURP: [VALOR]"
-  "9.- Con domicilio: [DIRECCIÓN]"
+DATOS CORRECTOS DEL CLIENTE (estos son los valores de referencia):
+\${filled}
+\${empty ? 'Campos NO proporcionados, NO evaluar: ' + empty : ''}
 
-EQUIVALENCIAS QUE DEBES ACEPTAR COMO CORRECTO:
-- "BIENES MANCOMUNADOS" = "MANCOMUNADOS" = "Sociedad conyugal" = "bienes en común"
-- "SEPARACION DE BIENES" = "Separación de bienes"
-- "CASADA" o "CASADO" = "Casado(a)"
-- "SOLTERA" o "SOLTERO" = "Soltero(a)"
-- "DIVORCIADA/O" = "Divorciado(a)"
-- "Profesión:" = "Ocupación:" = "Oficio:" → el valor que le sigue es la ocupación
-- "Originario de:" = "Natural de:" = "Procedente de:" → el valor es el origen
-- "5.- Estado civil: CASADA (BIENES MANCOMUNADOS)" → Estado civil=Casado(a) Y Régimen=Sociedad conyugal → ambos CORRECTO
-- El texto del PDF puede tener errores OCR con espacios extra: "CASA DA"=CASADA, "COAH UILA"=COAHUILA
+TEXTO COMPLETO DEL CONTRATO:
+\${cText}
 
-REGLAS:
-1. Ignora mayúsculas/minúsculas/acentos al comparar
-2. Si el valor está en el contrato aunque sea con variación menor → "correcto"
-3. "error" solo si el valor existe pero es CLARAMENTE diferente (nombre distinto, CURP diferente)
-4. "faltante" solo si buscaste en TODO el contrato y definitivamente NO está
-5. NUNCA marques "faltante" campos que el usuario NO proporcionó
-6. Para estado civil: si encuentras "CASADA", "CASADO", "SOLTERO", "SOLTERA", etc. en cualquier parte → es correcto
-7. Para régimen: si encuentras "MANCOMUNADOS", "SOCIEDAD CONYUGAL", "SEPARACION" → es correcto
+REGLAS DE VERIFICACIÓN:
+1. Busca cada dato en TODO el texto — tanto en el contrato principal como en los ANEXOS
+2. Ignora mayúsculas/minúsculas/acentos: "EMPLEADA"="Empleada", "COAHUILA"="Coahuila"
+3. EQUIVALENCIAS OBLIGATORIAS que siempre son CORRECTO:
+   - "BIENES MANCOMUNADOS" o "MANCOMUNADOS" = "Sociedad conyugal"
+   - "SEPARACION DE BIENES" = "Separación de bienes"  
+   - "CASADA" o "CASADO" = "Casado(a)"
+   - "SOLTERA" o "SOLTERO" = "Soltero(a)"
+   - "Profesión: EMPLEADA" = Ocupación "Empleada"
+   - "Originario de: COAHUILA" = Originario de "Coahuila"
+   - El número de TICKETS en el contrato puede aparecer como "____5____" o "5 TICKETS" o "equivalente a ____5____ tickets"
+4. Un dato es "correcto" si aparece en el contrato aunque sea en diferente sección (CMPI, ANEXO A, ANEXO B, ANEXO C)
+5. Un dato es "error" SOLO si aparece claramente con un valor DIFERENTE al dato del cliente
+6. Un dato es "faltante" SOLO si el usuario lo proporcionó Y definitivamente NO aparece en ninguna parte
+7. NO marques como faltante campos que el usuario no proporcionó
+8. Para el campo NUI: búscalo como "NUI:", "NÚMERO ÚNICO DE IDENTIFICACIÓN (NUI):", o en el encabezado del documento
+9. Para beneficiario: búscalo en cláusula SEXTA "DESIGNACIÓN DE BENEFICIARIOS" o en DATOS GENERALES del ANEXO A
+10. Para notaría: búscalo en cláusula VIGÉSIMA PRIMERA — en estos contratos es la "Notaría Pública número 29"
 
-JSON EXACTO (sin texto extra):
+JSON EXACTO (sin texto extra, sin markdown):
 {"resumen":{"errores":0,"faltantes":0,"correctos":0,"puntaje":0},"hallazgos":[{"tipo":"error","campo":"","valorContrato":"","valorCorrecto":"","descripcion":""}],"contratoAnotado":""}
 
-contratoAnotado: texto COMPLETO del contrato con [ERROR:fragmento], [FALTANTE:desc], [OK:fragmento]
-puntaje: 0-100`;gún calidad general del contrato.`;
+contratoAnotado: texto COMPLETO del contrato con [ERROR:fragmento], [FALTANTE:campo_faltante], [OK:fragmento_correcto]
+puntaje: 0-100 (penaliza solo errores reales y faltantes confirmados)`;gún calidad general del contrato.`;
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',temperature:0,max_tokens:6000,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',temperature:0,max_tokens:8000,messages:[{role:'user',content:prompt}]})});
     if(!resp.ok){const e=await resp.json();throw new Error(e.error?.message);}
     const data=await resp.json();
     S.result=JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
