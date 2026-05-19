@@ -257,38 +257,45 @@ footer{background:var(--gray);text-align:center;padding:1rem;margin-top:2.5rem}
             <div class="ff full"><label>NUI</label><input id="f_nui" placeholder="Número único de identificación" oninput="chkReady()"></div>
             <div class="ff full"><label>Nombre completo</label><input id="f_nombre" placeholder="Nombre(s) Apellido Paterno Apellido Materno" oninput="chkReady()"></div>
             <div class="ff"><label>Estado civil</label>
-              <select id="f_estado_civil" onchange="chkReady()">
+              <select id="f_estado_civil_sel" onchange="syncCombo('estado_civil')">
                 <option value="">— Seleccionar —</option>
-                <option>Soltero(a)</option><option>Casado(a)</option><option>Divorciado(a)</option><option>Viudo(a)</option><option>Unión libre</option>
-              </select></div>
+                <option>Soltero(a)</option><option>Casado(a)</option><option>Divorciado(a)</option><option>Viudo(a)</option><option>Unión libre</option><option value="__otro__">Otro (escribir)...</option>
+              </select>
+              <input id="f_estado_civil" placeholder="Escribe el estado civil..." oninput="chkReady()" style="display:none;margin-top:4px"></div>
             <div class="ff"><label>Régimen matrimonial</label>
-              <select id="f_regimen" onchange="chkReady()">
+              <select id="f_regimen_sel" onchange="syncCombo('regimen')">
                 <option value="">— Seleccionar —</option>
-                <option>Sociedad conyugal</option><option>Separación de bienes</option><option>N/A</option>
-              </select></div>
+                <option>Sociedad conyugal</option><option>Separación de bienes</option><option>N/A</option><option value="__otro__">Otro (escribir)...</option>
+              </select>
+              <input id="f_regimen" placeholder="Escribe el régimen..." oninput="chkReady()" style="display:none;margin-top:4px"></div>
             <div class="ff"><label>Originario de</label><input id="f_origen" placeholder="Ciudad, Estado" oninput="chkReady()"></div>
-            <div class="ff"><label>Ocupación</label><input id="f_ocupacion" placeholder="Ej. Empleada, Ingeniero..." oninput="chkReady()"></div>
-            <div class="ff"><label>Correo electrónico</label><input id="f_correo" type="email" placeholder="ejemplo@correo.com" oninput="chkReady()"></div>
-            <div class="ff"><label>Teléfono</label><input id="f_telefono" placeholder="10 dígitos" oninput="chkReady()"></div>
+            <div class="ff"><label>Ocupación</label>
+              <select id="f_ocupacion_sel" onchange="syncCombo('ocupacion')">
+                <option value="">— Seleccionar —</option>
+                <option>Empleado(a)</option><option>Empresario(a)</option><option>Profesionista</option><option>Comerciante</option><option>Ama de casa</option><option>Jubilado(a)</option><option value="__otro__">Otro (escribir)...</option>
+              </select>
+              <input id="f_ocupacion" placeholder="Escribe la ocupación..." oninput="chkReady()" style="display:none;margin-top:4px"></div>
             <div class="ff"><label>CURP</label><input id="f_curp" placeholder="18 caracteres" style="text-transform:uppercase" oninput="chkReady()"></div>
             <div class="ff"><label>RFC</label><input id="f_rfc" placeholder="12 o 13 caracteres" style="text-transform:uppercase" oninput="chkReady()"></div>
             <div class="ff full"><label>Domicilio completo</label><input id="f_domicilio" placeholder="Calle, Número, Col., Ciudad, C.P." oninput="chkReady()"></div>
-            <div class="ff full"><label>Beneficiario</label><input id="f_beneficiario" placeholder="Nombre completo del beneficiario" oninput="chkReady()"></div>
+            <div class="ff full"><label>Beneficiario(s) <span style="font-weight:400;font-size:9px;color:var(--text3)">(separar con coma si son varios)</span></label>
+              <input id="f_beneficiario" placeholder="Ej. Luis Fernando González, María García López" oninput="chkReady()"></div>
           </div>
           <div class="fsect">&#127903; Datos del ticket</div>
           <div class="fgrid">
-            <div class="ff"><label>Cantidad de tickets</label><input id="f_tickets" type="number" placeholder="Ej. 5" oninput="chkReady()"></div>
-            <div class="ff"><label>Valor por ticket</label><input id="f_valor_ticket" placeholder="Ej. $407,800" oninput="chkReady()"></div>
+            <div class="ff"><label>Cantidad de tickets</label><input id="f_tickets" type="number" placeholder="Ej. 5" oninput="calcTotal()"></div>
+            <div class="ff"><label>Valor por ticket</label><input id="f_valor_ticket" placeholder="Ej. $407,800" oninput="calcTotal()"></div>
+            <div class="ff full"><label>Inversión total <span style="font-weight:400;font-size:9px;color:var(--text3)">(se calcula automáticamente o escribe manual)</span></label>
+              <input id="f_inversion_total" placeholder="Ej. $2,039,000" oninput="chkReady()"></div>
             <div class="ff"><label>Aportación inicial</label><input id="f_separacion" placeholder="Ej. $305,850" oninput="chkReady()"></div>
             <div class="ff"><label>Esquema de pago</label><input id="f_esquema" placeholder="Ej. Contado a 90 días" oninput="chkReady()"></div>
             <div class="ff"><label>Método de pago</label>
-              <select id="f_metodo_pago" onchange="chkReady()">
+              <select id="f_metodo_pago_sel" onchange="syncCombo('metodo_pago')">
                 <option value="">— Seleccionar —</option>
-                <option>Transferencia bancaria</option><option>Cheque</option><option>Efectivo</option><option>Tarjeta de crédito</option><option>Tarjeta de débito</option>
-              </select></div>
-            <div class="ff"><label>Fecha firma notaría</label><input id="f_fecha_notaria" type="date" oninput="chkReady()"></div>
+                <option>Transferencia bancaria</option><option>Cheque</option><option>Efectivo</option><option>Tarjeta de crédito</option><option>Tarjeta de débito</option><option value="__otro__">Otro (escribir)...</option>
+              </select>
+              <input id="f_metodo_pago" placeholder="Escribe el método de pago..." oninput="chkReady()" style="display:none;margin-top:4px"></div>
             <div class="ff full"><label>Fechas de pago para liquidar</label><input id="f_fechas_pago" placeholder="Ej. 27 mayo 2026, agosto 2026" oninput="chkReady()"></div>
-            <div class="ff full"><label>Notaría</label><input id="f_notaria" placeholder="Ej. Notaría Pública Número 29" oninput="chkReady()"></div>
           </div>
         </div>
       </div>
@@ -388,20 +395,17 @@ var FIELDS = [
   {id:'f_regimen',k:'regimen',label:'Régimen matrimonial'},
   {id:'f_origen',k:'origen',label:'Originario de'},
   {id:'f_ocupacion',k:'ocupacion',label:'Ocupación'},
-  {id:'f_correo',k:'correo',label:'Correo electrónico'},
-  {id:'f_telefono',k:'telefono',label:'Teléfono'},
   {id:'f_curp',k:'curp',label:'CURP'},
   {id:'f_rfc',k:'rfc',label:'RFC'},
   {id:'f_domicilio',k:'domicilio',label:'Domicilio completo'},
-  {id:'f_beneficiario',k:'beneficiario',label:'Beneficiario'},
+  {id:'f_beneficiario',k:'beneficiario',label:'Beneficiario(s)'},
   {id:'f_tickets',k:'tickets',label:'Cantidad de tickets'},
   {id:'f_valor_ticket',k:'valor_ticket',label:'Valor por ticket'},
+  {id:'f_inversion_total',k:'inversion_total',label:'Inversión total'},
   {id:'f_separacion',k:'separacion',label:'Aportación inicial'},
   {id:'f_esquema',k:'esquema',label:'Esquema de pago'},
   {id:'f_metodo_pago',k:'metodo_pago',label:'Método de pago'},
-  {id:'f_fechas_pago',k:'fechas_pago',label:'Fechas de pago'},
-  {id:'f_fecha_notaria',k:'fecha_notaria',label:'Fecha firma notaría'},
-  {id:'f_notaria',k:'notaria',label:'Notaría'}
+  {id:'f_fechas_pago',k:'fechas_pago',label:'Fechas de pago'}
 ];
 
 function toast(msg) {
@@ -427,6 +431,37 @@ function getFormData() {
   });
 }
 function formHasData() { return getFormData().some(function(f) { return f.value; }); }
+/* COMBO FIELDS (select + manual input) */
+function syncCombo(field) {
+  var sel = document.getElementById('f_'+field+'_sel');
+  var inp = document.getElementById('f_'+field);
+  if (!sel || !inp) return;
+  if (sel.value === '__otro__') {
+    inp.style.display = 'block';
+    inp.value = '';
+    inp.focus();
+  } else {
+    inp.style.display = 'none';
+    inp.value = sel.value;
+  }
+  chkReady();
+}
+
+/* AUTO-CALC TOTAL */
+function calcTotal() {
+  var tEl = document.getElementById('f_tickets');
+  var vEl = document.getElementById('f_valor_ticket');
+  var totEl = document.getElementById('f_inversion_total');
+  var qty = parseInt((tEl.value||'').replace(/[^0-9]/g,'')) || 0;
+  var valStr = (vEl.value||'').replace(/[^0-9.]/g,'');
+  var val = parseFloat(valStr) || 0;
+  if (qty > 0 && val > 0) {
+    var total = qty * val;
+    totEl.value = '$' + total.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  chkReady();
+}
+
 function chkReady() {
   document.getElementById('analyzeBtn').disabled = !(S.files.length && formHasData() && S.key);
 }
@@ -523,12 +558,26 @@ async function parsePaste() {
     if (!resp.ok) { var er=await resp.json(); throw new Error(er.error?er.error.message:'Error'); }
     var data = await resp.json();
     var parsed = JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
-    var map = {nui:'f_nui',nombre:'f_nombre',estado_civil:'f_estado_civil',regimen:'f_regimen',origen:'f_origen',ocupacion:'f_ocupacion',correo:'f_correo',telefono:'f_telefono',curp:'f_curp',rfc:'f_rfc',domicilio:'f_domicilio',beneficiario:'f_beneficiario',tickets:'f_tickets',valor_ticket:'f_valor_ticket',separacion:'f_separacion',esquema:'f_esquema',metodo_pago:'f_metodo_pago',fechas_pago:'f_fechas_pago',fecha_notaria:'f_fecha_notaria',notaria:'f_notaria'};
+    var map = {nui:'f_nui',nombre:'f_nombre',estado_civil:'f_estado_civil',regimen:'f_regimen',origen:'f_origen',ocupacion:'f_ocupacion',curp:'f_curp',rfc:'f_rfc',domicilio:'f_domicilio',beneficiario:'f_beneficiario',tickets:'f_tickets',valor_ticket:'f_valor_ticket',inversion_total:'f_inversion_total',separacion:'f_separacion',esquema:'f_esquema',metodo_pago:'f_metodo_pago',fechas_pago:'f_fechas_pago'};
     var filled = 0;
     Object.keys(map).forEach(function(k) {
       var el=document.getElementById(map[k]); var val=parsed[k]||'';
       if(el&&val){el.value=val;el.classList.add('filled');setTimeout(function(){el.classList.remove('filled');},2000);filled++;}
     });
+    // Sync combo selects after fill
+    ['estado_civil','regimen','ocupacion','metodo_pago'].forEach(function(field) {
+      var inp = document.getElementById('f_'+field);
+      var sel = document.getElementById('f_'+field+'_sel');
+      if (inp && sel && inp.value) {
+        var found = false;
+        Array.from(sel.options).forEach(function(opt) {
+          if (opt.value === inp.value || opt.text === inp.value) { sel.value = opt.value; found = true; }
+        });
+        if (!found) { sel.value = '__otro__'; inp.style.display = 'block'; }
+        else { inp.style.display = 'none'; }
+      }
+    });
+    calcTotal();
     closeModal(); chkReady(); toast(filled+' campos rellenados');
   } catch(err) { toast('Error: '+err.message); }
   finally { document.getElementById('pind').classList.remove('show'); document.getElementById('parseBtn').disabled=false; }
@@ -757,6 +806,10 @@ function resetAll() {
   document.getElementById('pasteArea').value='';
   document.getElementById('occBadge').classList.remove('show');
   FIELDS.forEach(function(f){var el=document.getElementById(f.id);if(el.tagName==='SELECT')el.selectedIndex=0;else el.value='';});
+  ['estado_civil','regimen','ocupacion','metodo_pago'].forEach(function(f){
+    var sel=document.getElementById('f_'+f+'_sel');var inp=document.getElementById('f_'+f);
+    if(sel)sel.selectedIndex=0;if(inp){inp.value='';inp.style.display='none';}
+  });
   chkReady();
 }
 
